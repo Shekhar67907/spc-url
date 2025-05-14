@@ -37,6 +37,62 @@ function calculateStdDev(data: number[], mean: number | null = null): number | n
 }
 
 /**
+ * Calculate subgroup X-bar values based on sample size
+ * @param measurements - Original measurement values
+ * @param sampleSize - Sample size (1-5)
+ * @returns Array of X-bar values for each subgroup
+ */
+function calculateSubgroupXBar(measurements: number[], sampleSize: number): number[] {
+  const xBarValues: number[] = [];
+  
+  if (sampleSize === 1) {
+    // For sample size 1, each measurement is its own X-bar value
+    return [...measurements];
+  } else {
+    // For sample sizes 2-5, group measurements into subgroups
+    for (let i = 0; i < measurements.length; i += sampleSize) {
+      const subgroup = measurements.slice(i, Math.min(i + sampleSize, measurements.length));
+      // Include incomplete subgroups (as per paste-2.txt explanations)
+      if (subgroup.length > 0) {
+        const subgroupAvg = subgroup.reduce((sum, val) => sum + val, 0) / subgroup.length;
+        xBarValues.push(subgroupAvg);
+      }
+    }
+  }
+
+  return xBarValues;
+}
+
+/**
+ * Calculate subgroup ranges based on sample size
+ * @param measurements - Original measurement values
+ * @param sampleSize - Sample size (1-5)
+ * @returns Array of range values for each subgroup
+ */
+function calculateSubgroupRanges(measurements: number[], sampleSize: number): number[] {
+  const ranges: number[] = [];
+
+  if (sampleSize === 1) {
+    // For individual values, calculate moving ranges (MR) between consecutive points
+    for (let i = 1; i < measurements.length; i++) {
+      ranges.push(Math.abs(measurements[i] - measurements[i - 1]));
+    }
+  } else {
+    // For sample sizes 2-5, calculate range within each subgroup
+    for (let i = 0; i < measurements.length; i += sampleSize) {
+      const subgroup = measurements.slice(i, Math.min(i + sampleSize, measurements.length));
+      // Include incomplete subgroups as long as there are at least 2 values
+      if (subgroup.length >= 2) {
+        const range = Math.max(...subgroup) - Math.min(...subgroup);
+        ranges.push(range);
+      }
+    }
+  }
+
+  return ranges;
+}
+
+/**
  * Calculate distribution data for histogram
  * @param data - Array of numeric values
  * @param lsl - Lower specification limit
@@ -54,6 +110,7 @@ function calculateDistributionData(
   const max = Math.max(...data);
   const range = max - min;
 
+  // Get an appropriate bin count based on data size
   const binCount = Math.ceil(Math.sqrt(data.length));
   const binWidth = range / binCount;
   const binStart = Math.min(min, lsl);
@@ -93,71 +150,65 @@ function calculateDistributionData(
  * @returns Analysis results or null if invalid
  */
 function analyzeRuns(data: number[]): {
-  runsAbove: number;
-  runsBelow: number;
-  maxRunLength: number;
+  maxRunAbove: number;
+  maxRunBelow: number;
   maxTrendUp: number;
   maxTrendDown: number;
 } | null {
   if (data.length === 0) return null;
-
+  
   const mean = calculateMean(data);
   if (mean === null) return null;
 
-  let runsAbove = 0;
-  let runsBelow = 0;
-  let maxRunLength = 0;
-  let currentRun = 0;
-  let prevAboveMean: boolean | null = null;
-
+  let currentRunAbove = 0;
+  let currentRunBelow = 0;
+  let maxRunAbove = 0;
+  let maxRunBelow = 0;
+  
+  // Check for runs above/below mean
   data.forEach((value) => {
-    const isAboveMean = value > mean;
-    if (prevAboveMean === null) {
-      prevAboveMean = isAboveMean;
-      currentRun = 1;
-    } else if (isAboveMean === prevAboveMean) {
-      currentRun++;
+    if (value > mean) {
+      currentRunAbove++;
+      currentRunBelow = 0;
+      maxRunAbove = Math.max(maxRunAbove, currentRunAbove);
+    } else if (value < mean) {
+      currentRunBelow++;
+      currentRunAbove = 0;
+      maxRunBelow = Math.max(maxRunBelow, currentRunBelow);
     } else {
-      if (prevAboveMean) runsAbove++;
-      else runsBelow++;
-      maxRunLength = Math.max(maxRunLength, currentRun);
-      currentRun = 1;
-      prevAboveMean = isAboveMean;
+      // Equal to mean - reset both counters
+      currentRunAbove = 0;
+      currentRunBelow = 0;
     }
   });
 
-  if (prevAboveMean !== null) {
-    if (prevAboveMean) runsAbove++;
-    else runsBelow++;
-    maxRunLength = Math.max(maxRunLength, currentRun);
-  }
-
-  let maxTrendUp = 0;
-  let maxTrendDown = 0;
+  // Check for trends (increasing/decreasing)
   let currentTrendUp = 1;
   let currentTrendDown = 1;
+  let maxTrendUp = 1;
+  let maxTrendDown = 1;
 
   for (let i = 1; i < data.length; i++) {
     if (data[i] > data[i - 1]) {
       currentTrendUp++;
       currentTrendDown = 1;
+      maxTrendUp = Math.max(maxTrendUp, currentTrendUp);
     } else if (data[i] < data[i - 1]) {
       currentTrendDown++;
       currentTrendUp = 1;
+      maxTrendDown = Math.max(maxTrendDown, currentTrendDown);
     } else {
+      // Equal values - reset both counters
       currentTrendUp = 1;
       currentTrendDown = 1;
     }
-    maxTrendUp = Math.max(maxTrendUp, currentTrendUp);
-    maxTrendDown = Math.max(maxTrendDown, currentTrendDown);
   }
 
   return {
-    runsAbove,
-    runsBelow,
-    maxRunLength,
+    maxRunAbove,
+    maxRunBelow,
     maxTrendUp,
-    maxTrendDown,
+    maxTrendDown
   };
 }
 
@@ -188,9 +239,7 @@ export function calculateAnalysisData(
       fromSpec != null &&
       !isNaN(parseFloat(fromSpec)) &&
       toSpec != null &&
-      !isNaN(parseFloat(toSpec)) &&
-      fromSpec !== "ok" &&
-      toSpec !== "not ok"
+      !isNaN(parseFloat(toSpec))
     );
   });
 
@@ -211,51 +260,40 @@ export function calculateAnalysisData(
   const stdDev = calculateStdDev(measurements, mean);
   if (mean === null || stdDev === null) throw new Error("Failed to calculate statistics");
 
-  // Create subgroups
-  const subgroups: number[][] = [];
-  const subgroupMeans: number[] = [];
-  const subgroupRanges: number[] = [];
-
-  for (let i = 0; i < measurements.length; i += sampleSize) {
-    const subgroup = measurements.slice(i, i + sampleSize);
-    if (subgroup.length > 0) {
-      subgroups.push(subgroup);
-      subgroupMeans.push(calculateMean(subgroup) ?? 0);
-      if (subgroup.length > 1) {
-        subgroupRanges.push(Math.max(...subgroup) - Math.min(...subgroup));
-      } else {
-        subgroupRanges.push(0); // Range is 0 for single-point subgroup
-      }
-    }
-  }
-
-  // Calculate grand mean and average range
-  const grandMean = calculateMean(subgroupMeans) ?? 0;
-  const avgRange = calculateMean(subgroupRanges) ?? 0;
+  // Calculate subgroup statistics
+  const xBarValues = calculateSubgroupXBar(measurements, sampleSize);
+  const rangeValues = calculateSubgroupRanges(measurements, sampleSize);
 
   // Calculate control limits
+  const grandMean = calculateMean(xBarValues) ?? 0;
+  const avgRange = calculateMean(rangeValues) ?? 0;
+
   const xBarUcl = grandMean + constants.A2 * avgRange;
   const xBarLcl = grandMean - constants.A2 * avgRange;
   const rangeUcl = constants.D4 * avgRange;
   const rangeLcl = constants.D3 * avgRange;
 
   // Prepare chart data
-  const xBarData = subgroupMeans.map((mean, i) => ({ x: i + 1, y: mean }));
-  const rangeData = subgroupRanges.map((range, i) => ({ x: i + 1, y: range }));
+  const xBarData = xBarValues.map((mean, i) => ({ x: i + 1, y: mean }));
+  const rangeData = rangeValues.map((range, i) => ({ x: i + 1, y: range }));
 
   // Calculate within subgroup standard deviation
   const withinStdDev = sampleSize === 1 || constants.d2 === 0 ? stdDev : avgRange / constants.d2;
 
+  // Prevent division by zero
+  const safeWithinStdDev = withinStdDev === 0 ? 0.000001 : withinStdDev;
+  const safeStdDev = stdDev === 0 ? 0.000001 : stdDev;
+
   // Calculate process capability indices
-  const cp = withinStdDev !== 0 ? (usl - lsl) / (6 * withinStdDev) : 0;
-  const cpu = withinStdDev !== 0 ? (usl - grandMean) / (3 * withinStdDev) : 0;
-  const cpl = withinStdDev !== 0 ? (grandMean - lsl) / (3 * withinStdDev) : 0;
+  const cp = (usl - lsl) / (6 * safeWithinStdDev);
+  const cpu = (usl - grandMean) / (3 * safeWithinStdDev);
+  const cpl = (grandMean - lsl) / (3 * safeWithinStdDev);
   const cpk = Math.min(cpu, cpl);
 
   // Calculate process performance indices
-  const pp = stdDev !== 0 ? (usl - lsl) / (6 * stdDev) : 0;
-  const ppu = stdDev !== 0 ? (usl - grandMean) / (3 * stdDev) : 0;
-  const ppl = stdDev !== 0 ? (grandMean - lsl) / (3 * stdDev) : 0;
+  const pp = (usl - lsl) / (6 * safeStdDev);
+  const ppu = (usl - grandMean) / (3 * safeStdDev);
+  const ppl = (grandMean - lsl) / (3 * safeStdDev);
   const ppk = Math.min(ppu, ppl);
 
   // Calculate distribution data
@@ -265,10 +303,9 @@ export function calculateAnalysisData(
   };
 
   // Analyze for special causes
-  const runsAnalysis = analyzeRuns(subgroupMeans) ?? {
-    runsAbove: 0,
-    runsBelow: 0,
-    maxRunLength: 0,
+  const runsAnalysis = analyzeRuns(xBarValues) ?? {
+    maxRunAbove: 0,
+    maxRunBelow: 0,
     maxTrendUp: 0,
     maxTrendDown: 0,
   };
@@ -280,8 +317,8 @@ export function calculateAnalysisData(
   const pointsOutsideRangeLimits = rangeData.filter(
     (point) => point.y > rangeUcl || point.y < rangeLcl
   ).length;
-  const hasEightConsecutiveAboveMean = runsAnalysis.maxRunLength >= 8;
-  const hasSixConsecutiveIncDec = Math.max(runsAnalysis.maxTrendUp, runsAnalysis.maxTrendDown) >= 6;
+  const hasEightConsecutive = runsAnalysis.maxRunAbove >= 8 || runsAnalysis.maxRunBelow >= 8;
+  const hasSixConsecutiveTrend = runsAnalysis.maxTrendUp >= 6 || runsAnalysis.maxTrendDown >= 6;
 
   // 3S Analysis
   const processShift = cpk < 0.75 * cp ? "Yes" : "No";
@@ -311,16 +348,16 @@ export function calculateAnalysisData(
     metrics: {
       xBar: Number(grandMean.toFixed(4)),
       stdDevOverall: Number(stdDev.toFixed(4)),
-      stdDevWithin: Number(withinStdDev?.toFixed(4)),
+      stdDevWithin: Number(withinStdDev.toFixed(4)),
       avgRange: Number(avgRange.toFixed(4)),
-      cp: Number(cp.toFixed(2)),
-      cpu: Number(cpu.toFixed(2)),
-      cpl: Number(cpl.toFixed(2)),
-      cpk: Number(cpk.toFixed(2)),
-      pp: Number(pp.toFixed(2)),
-      ppu: Number(ppu.toFixed(2)),
-      ppl: Number(ppl.toFixed(2)),
-      ppk: Number(ppk.toFixed(2)),
+      cp: Number(isFinite(cp) ? cp.toFixed(2) : "0.00"),
+      cpu: Number(isFinite(cpu) ? cpu.toFixed(2) : "0.00"),
+      cpl: Number(isFinite(cpl) ? cpl.toFixed(2) : "0.00"),
+      cpk: Number(isFinite(cpk) ? cpk.toFixed(2) : "0.00"),
+      pp: Number(isFinite(pp) ? pp.toFixed(2) : "0.00"),
+      ppu: Number(isFinite(ppu) ? ppu.toFixed(2) : "0.00"),
+      ppl: Number(isFinite(ppl) ? ppl.toFixed(2) : "0.00"),
+      ppk: Number(isFinite(ppk) ? ppk.toFixed(2) : "0.00"),
       lsl: Number(lsl.toFixed(3)),
       usl: Number(usl.toFixed(3)),
       target: Number(((usl + lsl) / 2).toFixed(3)),
@@ -350,18 +387,18 @@ export function calculateAnalysisData(
       rangePointsOutsideLimits: pointsOutsideRangeLimits > 0
         ? `${pointsOutsideRangeLimits} Points Detected`
         : "None",
-      eightConsecutivePoints: hasEightConsecutiveAboveMean ? "Yes" : "No",
-      sixConsecutiveTrend: hasSixConsecutiveIncDec ? "Yes" : "No",
+      eightConsecutivePoints: hasEightConsecutive ? "Yes" : "No",
+      sixConsecutiveTrend: hasSixConsecutiveTrend ? "Yes" : "No",
     },
     processInterpretation: {
       decisionRemark,
       processPotential: cp >= 1.33 ? "Excellent" : cp >= 1.0 ? "Good" : "Poor",
       processPerformance: cpk >= 1.33 ? "Excellent" : cpk >= 1.0 ? "Good" : "Poor",
       processStability:
-        pointsOutsideXBarLimits === 0 && !hasEightConsecutiveAboveMean
+        pointsOutsideXBarLimits === 0 && !hasEightConsecutive
           ? "Stable"
           : "Unstable",
-      processShift: hasEightConsecutiveAboveMean ? "Present" : "Not Detected",
+      processShift: hasEightConsecutive ? "Present" : "Not Detected",
     },
   };
 }
