@@ -15,6 +15,8 @@ interface UseSPCDataParams {
   operation: string;
 }
 
+const BASE_URL = "http://10.10.1.7:8304";
+
 export function useSPCData({ 
   startDate, 
   endDate, 
@@ -30,69 +32,120 @@ export function useSPCData({
 
   // Fetch shifts
   useEffect(() => {
-    fetchData<ShiftData[]>("/api/shifts", (data) => setShifts(data));
+    const fetchShifts = async () => {
+      try {
+        const response = await fetch(`${BASE_URL}/api/commonappservices/getshiftdatalist`);
+        if (!response.ok) throw new Error("Failed to fetch shifts");
+        const data = await response.json();
+        setShifts(data.data || []);
+        setError(null);
+      } catch (err) {
+        setError("Failed to load shifts");
+        console.error(err);
+      }
+    };
+
+    fetchShifts();
   }, []);
 
-  // Fetch materials when shifts and dates change
+  // Fetch materials
   useEffect(() => {
-    if (startDate && endDate && selectedShifts.length > 0) {
-      fetchDataWithParams<MaterialData[]>("/api/materials", {
-        fromDate: format(startDate, "dd/MM/yyyy"),
-        toDate: format(endDate, "dd/MM/yyyy"),
-        shiftIds: selectedShifts,
-      }, (data) => setMaterials(data));
-    }
+    const fetchMaterials = async () => {
+      if (!startDate || !endDate || !selectedShifts.length) {
+        setMaterials([]);
+        return;
+      }
+
+      try {
+        const params = new URLSearchParams({
+          FromDate: format(startDate, "dd/MM/yyyy"),
+          ToDate: format(endDate, "dd/MM/yyyy"),
+          ShiftId: selectedShifts.join(",")
+        });
+
+        const response = await fetch(
+          `${BASE_URL}/api/productionappservices/getspcmateriallist?${params}`
+        );
+
+        if (!response.ok) throw new Error("Failed to fetch materials");
+        const data = await response.json();
+        setMaterials(data || []);
+        setError(null);
+      } catch (err) {
+        setError("Failed to load materials");
+        console.error(err);
+      }
+    };
+
+    fetchMaterials();
   }, [startDate, endDate, selectedShifts]);
 
-  // Fetch operations when material changes
+  // Fetch operations
   useEffect(() => {
-    if (material && selectedShifts.length > 0) {
-      fetchDataWithParams<OperationData[]>("/api/operations", {
-        fromDate: format(startDate, "dd/MM/yyyy"),
-        toDate: format(endDate, "dd/MM/yyyy"),
-        materialCode: material,
-        shiftIds: selectedShifts,
-      }, (data) => setOperations(data));
-    } else {
-      setOperations([]);
-    }
+    const fetchOperations = async () => {
+      if (!material || !startDate || !endDate || !selectedShifts.length) {
+        setOperations([]);
+        return;
+      }
+
+      try {
+        const params = new URLSearchParams({
+          FromDate: format(startDate, "dd/MM/yyyy"),
+          ToDate: format(endDate, "dd/MM/yyyy"),
+          MaterialCode: material,
+          ShiftId: selectedShifts.join(",")
+        });
+
+        const response = await fetch(
+          `${BASE_URL}/api/productionappservices/getspcoperationlist?${params}`
+        );
+
+        if (!response.ok) throw new Error("Failed to fetch operations");
+        const data = await response.json();
+        setOperations(data || []);
+        setError(null);
+      } catch (err) {
+        setError("Failed to load operations");
+        console.error(err);
+      }
+    };
+
+    fetchOperations();
   }, [material, startDate, endDate, selectedShifts]);
 
-  // Fetch gauges when operation changes
+  // Fetch gauges
   useEffect(() => {
-    if (operation && selectedShifts.length > 0) {
-      const url = `/api/gauge?fromDate=${format(startDate, "dd/MM/yyyy")}&toDate=${format(endDate, "dd/MM/yyyy")}&materialCode=${material}&operationCode=${operation}`;
-      fetchData<GuageData[]>(url, (data) => setGauges(data));
-    } else {
-      setGauges([]);
-    }
+    const fetchGauges = async () => {
+      if (!operation || !material || !startDate || !endDate || !selectedShifts.length) {
+        setGauges([]);
+        return;
+      }
+
+      try {
+        const params = new URLSearchParams({
+          FromDate: format(startDate, "dd/MM/yyyy"),
+          ToDate: format(endDate, "dd/MM/yyyy"),
+          MaterialCode: material,
+          OperationCode: operation,
+          ShiftId: selectedShifts.join(",")
+        });
+
+        const response = await fetch(
+          `${BASE_URL}/api/productionappservices/getspcguagelist?${params}`
+        );
+
+        if (!response.ok) throw new Error("Failed to fetch gauges");
+        const data = await response.json();
+        setGauges(data || []);
+        setError(null);
+      } catch (err) {
+        setError("Failed to load gauges");
+        console.error(err);
+      }
+    };
+
+    fetchGauges();
   }, [operation, material, startDate, endDate, selectedShifts]);
-
-  const fetchData = async <T,>(url: string, setterFn: (data: T) => void) => {
-    try {
-      const response = await fetch(url);
-      const data = await response.json();
-      setterFn((data.data || data || []) as T);
-      setError(null);
-    } catch {
-      setError(`Failed to load data from ${url}`);
-    }
-  };
-
-  const fetchDataWithParams = async <T,>(url: string, params: object, setterFn: (data: T) => void) => {
-    try {
-      const response = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(params),
-      });
-      const data = await response.json();
-      setterFn((data || []) as T);
-      setError(null);
-    } catch {
-      setError(`Failed to load data from ${url}`);
-    }
-  };
 
   return {
     shifts,
