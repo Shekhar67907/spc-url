@@ -36,7 +36,10 @@ const sampleSizes = [
   { value: "3", label: "3", A2: 1.772, D3: 0, D4: 2.574 },
   { value: "4", label: "4", A2: 0.796, D3: 0, D4: 2.282 },
   { value: "5", label: "5", A2: 0.691, D3: 0, D4: 2.114 },
-];
+] as const;
+
+type SampleSize = typeof sampleSizes[number]["value"];
+type FormField = "material" | "operation" | "gauge" | "sampleSize";
 
 interface AnalysisFormProps {
   formState: FormState;
@@ -45,8 +48,6 @@ interface AnalysisFormProps {
   loading: boolean;
   error: string | null;
 }
-
-type FormField = "material" | "operation" | "gauge" | "sampleSize";
 
 export default function AnalysisForm({
   formState,
@@ -68,9 +69,41 @@ export default function AnalysisForm({
   const [isLoadingInspectionData, setIsLoadingInspectionData] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
-
   const BASE_URL = "http://10.10.1.7:8304";
- 
+
+  // Event handlers
+  const handleShiftToggle = (shiftId: string) => {
+    const updatedShifts = formState.selectedShifts.includes(shiftId)
+      ? formState.selectedShifts.filter((id) => id !== shiftId)
+      : [...formState.selectedShifts, shiftId];
+
+    setFormState({
+      ...formState,
+      selectedShifts: updatedShifts,
+    });
+  };
+
+  const handleDateChange = (field: "startDate" | "endDate", date: Date) => {
+    setFormState({
+      ...formState,
+      [field]: date,
+    });
+  };
+
+  const handleFieldChange = (field: FormField, value: string) => {
+    setFormState({
+      ...formState,
+      [field]: value,
+    });
+  };
+
+  const handleSubmit = () => {
+    try {
+      onAnalyze(formState);
+    } catch (err) {
+      setFetchError(err instanceof Error ? err.message : "Unknown error");
+    }
+  };
 
   // Fetch data from APIs
   useEffect(() => {
@@ -105,14 +138,11 @@ export default function AnalysisForm({
         const params = new URLSearchParams({
           FromDate: format(formState.startDate, "dd/MM/yyyy"),
           ToDate: format(formState.endDate, "dd/MM/yyyy"),
-          ShiftId: formState.selectedShifts.join(","), // 👈 comma-separated
+          ShiftId: formState.selectedShifts.join(","),
         });
 
         const response = await fetch(
-          `${BASE_URL}/api/productionappservices/getspcmateriallist?${params}`,
-          {
-            method: "GET",  
-          }
+          `${BASE_URL}/api/productionappservices/getspcmateriallist?${params}`
         );
 
         if (!response.ok) throw new Error("Failed to fetch materials");
@@ -124,7 +154,6 @@ export default function AnalysisForm({
         setIsLoadingMaterials(false);
       }
     };
-
 
     // Fetch operations
     const fetchOperations = async () => {
@@ -138,15 +167,10 @@ export default function AnalysisForm({
           FromDate: format(formState.startDate, "dd/MM/yyyy"),
           ToDate: format(formState.endDate, "dd/MM/yyyy"),
           MaterialCode: formState.material,
-          ShiftId: formState.selectedShifts.join(","), // 👈 comma-separated
+          ShiftId: formState.selectedShifts.join(","),
         });
         const response = await fetch(
-          `${BASE_URL}/api/productionappservices/getspcoperationlist?${params}`,
-          {
-            method: "GET",
-            // headers: { "Content-Type": "application/json" },
-            // body: JSON.stringify(formState.selectedShifts),
-          }
+          `${BASE_URL}/api/productionappservices/getspcoperationlist?${params}`
         );
         if (!response.ok) throw new Error("Failed to fetch operations");
         const data: Operation[] = await response.json();
@@ -171,13 +195,10 @@ export default function AnalysisForm({
           ToDate: format(formState.endDate, "dd/MM/yyyy"),
           MaterialCode: formState.material,
           OperationCode: formState.operation,
-          ShiftId: formState.selectedShifts.join(","), // 👈 comma-separated
+          ShiftId: formState.selectedShifts.join(","),
         });
         const response = await fetch(
-          `${BASE_URL}/api/productionappservices/getspcguagelist?${params}`,
-          {
-            method: "GET",
-          }
+          `${BASE_URL}/api/productionappservices/getspcguagelist?${params}`
         );
         if (!response.ok) throw new Error("Failed to fetch gauges");
         const data: Gauge[] = await response.json();
@@ -210,14 +231,10 @@ export default function AnalysisForm({
           MaterialCode: formState.material,
           OperationCode: formState.operation,
           GuageCode: formState.gauge,
-          ShiftId: formState.selectedShifts.join(","), // 👈 comma-separated
+          ShiftId: formState.selectedShifts.join(","),
         });
         const response = await fetch(
-          `${BASE_URL}/api/productionappservices/getspcpirinspectiondatalist?${params}`,
-          {
-            method: "GET",
-          
-          }
+          `${BASE_URL}/api/productionappservices/getspcpirinspectiondatalist?${params}`
         );
         if (!response.ok) throw new Error("Failed to fetch inspection data");
         const data: InspectionData[] = await response.json();
@@ -242,41 +259,6 @@ export default function AnalysisForm({
     formState.startDate,
     formState.endDate,
   ]);
-
-  // Event handlers
-  const handleShiftToggle = (shiftId: string) => {
-    const updatedShifts = formState.selectedShifts.includes(shiftId)
-      ? formState.selectedShifts.filter((id) => id !== shiftId)
-      : [...formState.selectedShifts, shiftId];
-
-    setFormState({
-      ...formState,
-      selectedShifts: updatedShifts,
-    });
-  };
-
-  const handleDateChange = (field: "startDate" | "endDate", date: Date) => {
-    setFormState({
-      ...formState,
-      [field]: date,
-    });
-  };
-
-  const handleFieldChange = (field: FormField, value: string) => {
-    setFormState({
-      ...formState,
-      [field]: value,
-    });
-  };
-
-  const handleSubmit = () => {
-    try {
-      // Trigger analysis with current form state
-      onAnalyze(formState);
-    } catch (err) {
-      setFetchError(err instanceof Error ? err.message : "Unknown error");
-    }
-  };
 
   const renderDatePicker = (label: string, field: "startDate" | "endDate", selected: Date) => (
     <div className="space-y-1">
@@ -387,7 +369,7 @@ export default function AnalysisForm({
                 <Select
                   disabled={isLoadingMaterials || materials.length === 0}
                   value={formState.material}
-                  onValueChange={(value) => handleFieldChange("material", value)}
+                  onValueChange={(value: string) => handleFieldChange("material", value)}
                 >
                   <SelectTrigger className="w-full h-9 text-sm">
                     <SelectValue placeholder="Select Material" />
@@ -401,7 +383,7 @@ export default function AnalysisForm({
                       materials.map((m) => (
                         <SelectItem
                           key={m.MaterialCode}
-                          value={m.MaterialCode.toString()}
+                          value={m.MaterialCode}
                           className="text-sm"
                         >
                           {m.MaterialName}
@@ -418,7 +400,7 @@ export default function AnalysisForm({
                 <Select
                   disabled={isLoadingOperations || operations.length === 0}
                   value={formState.operation}
-                  onValueChange={(value) => handleFieldChange("operation", value)}
+                  onValueChange={(value: string) => handleFieldChange("operation", value)}
                 >
                   <SelectTrigger className="w-full h-9 text-sm">
                     <SelectValue placeholder="Select Operation" />
@@ -432,7 +414,7 @@ export default function AnalysisForm({
                       operations.map((o) => (
                         <SelectItem
                           key={o.OperationCode}
-                          value={o.OperationCode.toString()}
+                          value={o.OperationCode}
                           className="text-sm"
                         >
                           {o.OperationName}
@@ -449,7 +431,7 @@ export default function AnalysisForm({
                 <Select
                   disabled={isLoadingGauges || gauges.length === 0}
                   value={formState.gauge}
-                  onValueChange={(value) => handleFieldChange("gauge", value)}
+                  onValueChange={(value: string) => handleFieldChange("gauge", value)}
                 >
                   <SelectTrigger className="w-full h-9 text-sm">
                     <SelectValue placeholder="Select Gauge" />
@@ -463,7 +445,7 @@ export default function AnalysisForm({
                       gauges.map((g) => (
                         <SelectItem
                           key={g.GuageCode}
-                          value={g.GuageCode.toString()}
+                          value={g.GuageCode}
                           className="text-sm"
                         >
                           {g.GuageName}
@@ -479,7 +461,7 @@ export default function AnalysisForm({
                 <Label className="text-xs">Sample Size</Label>
                 <Select
                   value={formState.sampleSize}
-                  onValueChange={(value) => handleFieldChange("sampleSize", value)}
+                  onValueChange={(value: SampleSize) => handleFieldChange("sampleSize", value)}
                 >
                   <SelectTrigger className="w-full h-9 text-sm">
                     <SelectValue placeholder="Sample Size" />
