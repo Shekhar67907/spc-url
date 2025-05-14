@@ -109,8 +109,7 @@ export default function AnalysisForm({
         const response = await fetch(
           `${BASE_URL}/api/productionappservices/getspcmateriallist?${params}`,
           {
-            method: "GET",
-            // headers: { "Content-Type": "application/json" },   
+            method: "GET",  
           }
         );
 
@@ -176,8 +175,6 @@ export default function AnalysisForm({
           `${BASE_URL}/api/productionappservices/getspcguagelist?${params}`,
           {
             method: "GET",
-            // headers: { "Content-Type": "application/json" },
-            // body: JSON.stringify(formState.selectedShifts),
           }
         );
         if (!response.ok) throw new Error("Failed to fetch gauges");
@@ -217,8 +214,7 @@ export default function AnalysisForm({
           `${BASE_URL}/api/productionappservices/getspcpirinspectiondatalist?${params}`,
           {
             method: "GET",
-            // headers: { "Content-Type": "application/json" },
-            // body: JSON.stringify(formState.selectedShifts),
+          
           }
         );
         if (!response.ok) throw new Error("Failed to fetch inspection data");
