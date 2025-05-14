@@ -46,6 +46,8 @@ interface AnalysisFormProps {
   error: string | null;
 }
 
+type FormField = "material" | "operation" | "gauge" | "sampleSize";
+
 export default function AnalysisForm({
   formState,
   setFormState,
@@ -66,7 +68,9 @@ export default function AnalysisForm({
   const [isLoadingInspectionData, setIsLoadingInspectionData] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
+
   const BASE_URL = "http://10.10.1.7:8304";
+ 
 
   // Fetch data from APIs
   useEffect(() => {
@@ -101,13 +105,13 @@ export default function AnalysisForm({
         const params = new URLSearchParams({
           FromDate: format(formState.startDate, "dd/MM/yyyy"),
           ToDate: format(formState.endDate, "dd/MM/yyyy"),
-          ShiftId: formState.selectedShifts.join(","),
+          ShiftId: formState.selectedShifts.join(","), // 👈 comma-separated
         });
 
         const response = await fetch(
           `${BASE_URL}/api/productionappservices/getspcmateriallist?${params}`,
           {
-            method: "GET",
+            method: "GET",  
           }
         );
 
@@ -121,6 +125,7 @@ export default function AnalysisForm({
       }
     };
 
+
     // Fetch operations
     const fetchOperations = async () => {
       if (!formState.material || !formState.startDate || !formState.endDate || !formState.selectedShifts.length) {
@@ -133,12 +138,14 @@ export default function AnalysisForm({
           FromDate: format(formState.startDate, "dd/MM/yyyy"),
           ToDate: format(formState.endDate, "dd/MM/yyyy"),
           MaterialCode: formState.material,
-          ShiftId: formState.selectedShifts.join(","),
+          ShiftId: formState.selectedShifts.join(","), // 👈 comma-separated
         });
         const response = await fetch(
           `${BASE_URL}/api/productionappservices/getspcoperationlist?${params}`,
           {
             method: "GET",
+            // headers: { "Content-Type": "application/json" },
+            // body: JSON.stringify(formState.selectedShifts),
           }
         );
         if (!response.ok) throw new Error("Failed to fetch operations");
@@ -164,7 +171,7 @@ export default function AnalysisForm({
           ToDate: format(formState.endDate, "dd/MM/yyyy"),
           MaterialCode: formState.material,
           OperationCode: formState.operation,
-          ShiftId: formState.selectedShifts.join(","),
+          ShiftId: formState.selectedShifts.join(","), // 👈 comma-separated
         });
         const response = await fetch(
           `${BASE_URL}/api/productionappservices/getspcguagelist?${params}`,
@@ -203,12 +210,13 @@ export default function AnalysisForm({
           MaterialCode: formState.material,
           OperationCode: formState.operation,
           GuageCode: formState.gauge,
-          ShiftId: formState.selectedShifts.join(","),
+          ShiftId: formState.selectedShifts.join(","), // 👈 comma-separated
         });
         const response = await fetch(
           `${BASE_URL}/api/productionappservices/getspcpirinspectiondatalist?${params}`,
           {
             method: "GET",
+          
           }
         );
         if (!response.ok) throw new Error("Failed to fetch inspection data");
@@ -254,19 +262,16 @@ export default function AnalysisForm({
     });
   };
 
-  const handleFieldChange = (
-  field: "material" | "operation" | "gauge" | "sampleSize",
-  value: string
-): void => {
-  setFormState({
-    ...formState,
-    [field]: value,
-  });
-};
-
+  const handleFieldChange = (field: FormField, value: string) => {
+    setFormState({
+      ...formState,
+      [field]: value,
+    });
+  };
 
   const handleSubmit = () => {
     try {
+      // Trigger analysis with current form state
       onAnalyze(formState);
     } catch (err) {
       setFetchError(err instanceof Error ? err.message : "Unknown error");
