@@ -11,6 +11,49 @@ const controlChartConstants: {
   "5": { A2: 0.691, D3: 0, D4: 2.114, d2: 2.326 },
 };
 
+function calculateSubgroupXBar(measurements: number[], sampleSize: number): number[] {
+  const xBarValues: number[] = [];
+  
+  if (sampleSize === 1) {
+    // For sample size 1, each measurement is its own X value
+    return [...measurements];
+  }
+  
+  // For sample sizes 2-5, calculate subgroup averages
+  for (let i = 0; i < measurements.length; i += sampleSize) {
+    const subgroup = measurements.slice(i, Math.min(i + sampleSize, measurements.length));
+    if (subgroup.length > 0) {
+      const subgroupAvg = subgroup.reduce((sum, val) => sum + val, 0) / subgroup.length;
+      xBarValues.push(subgroupAvg);
+    }
+  }
+  
+  return xBarValues;
+}
+
+function calculateSubgroupRanges(measurements: number[], sampleSize: number): number[] {
+  const ranges: number[] = [];
+  
+  if (sampleSize === 1) {
+    // For individual values, calculate moving ranges between consecutive points
+    for (let i = 1; i < measurements.length; i++) {
+      ranges.push(Math.abs(measurements[i] - measurements[i - 1]));
+    }
+    return ranges;
+  }
+  
+  // For sample sizes 2-5, calculate ranges within each subgroup
+  for (let i = 0; i < measurements.length; i += sampleSize) {
+    const subgroup = measurements.slice(i, Math.min(i + sampleSize, measurements.length));
+    if (subgroup.length >= 2) { // Need at least 2 points to calculate range
+      const range = Math.max(...subgroup) - Math.min(...subgroup);
+      ranges.push(range);
+    }
+  }
+  
+  return ranges;
+}
+
 /**
  * Calculate the mean of an array of numbers
  * @param data - Array of numeric values
@@ -34,62 +77,6 @@ function calculateStdDev(data: number[], mean: number | null = null): number | n
   const squaredDiffs = data.map((value) => Math.pow(value - dataMean, 2));
   const variance = calculateMean(squaredDiffs);
   return variance !== null ? Math.sqrt(variance) : null;
-}
-
-/**
- * Calculate subgroup X-bar values based on sample size
- * @param measurements - Original measurement values
- * @param sampleSize - Sample size (1-5)
- * @returns Array of X-bar values for each subgroup
- */
-function calculateSubgroupXBar(measurements: number[], sampleSize: number): number[] {
-  const xBarValues: number[] = [];
-  
-  if (sampleSize === 1) {
-    // For sample size 1, each measurement is its own X-bar value
-    return [...measurements];
-  } else {
-    // For sample sizes 2-5, group measurements into subgroups
-    for (let i = 0; i < measurements.length; i += sampleSize) {
-      const subgroup = measurements.slice(i, Math.min(i + sampleSize, measurements.length));
-      // Include incomplete subgroups (as per paste-2.txt explanations)
-      if (subgroup.length > 0) {
-        const subgroupAvg = subgroup.reduce((sum, val) => sum + val, 0) / subgroup.length;
-        xBarValues.push(subgroupAvg);
-      }
-    }
-  }
-
-  return xBarValues;
-}
-
-/**
- * Calculate subgroup ranges based on sample size
- * @param measurements - Original measurement values
- * @param sampleSize - Sample size (1-5)
- * @returns Array of range values for each subgroup
- */
-function calculateSubgroupRanges(measurements: number[], sampleSize: number): number[] {
-  const ranges: number[] = [];
-
-  if (sampleSize === 1) {
-    // For individual values, calculate moving ranges (MR) between consecutive points
-    for (let i = 1; i < measurements.length; i++) {
-      ranges.push(Math.abs(measurements[i] - measurements[i - 1]));
-    }
-  } else {
-    // For sample sizes 2-5, calculate range within each subgroup
-    for (let i = 0; i < measurements.length; i += sampleSize) {
-      const subgroup = measurements.slice(i, Math.min(i + sampleSize, measurements.length));
-      // Include incomplete subgroups as long as there are at least 2 values
-      if (subgroup.length >= 2) {
-        const range = Math.max(...subgroup) - Math.min(...subgroup);
-        ranges.push(range);
-      }
-    }
-  }
-
-  return ranges;
 }
 
 /**
