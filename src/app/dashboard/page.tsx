@@ -51,8 +51,9 @@ export default function SPCAnalysisPage() {
       );
 
       if (!response.ok) {
-        throw new Error("Failed to fetch inspection data");
+        throw new Error(`Failed to fetch inspection data: ${response.statusText}`);
       }
+
       const inspectionData: InspectionData[] = await response.json();
 
       // Filter data by selected shifts
