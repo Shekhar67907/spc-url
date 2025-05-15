@@ -4,29 +4,63 @@ import { AnalysisData, SSAnalysis, ProcessInterpretation, InspectionData } from 
 const BASE_URL = "http://10.10.1.7:8304";
 
 const calculateDistributionData = (measurements: number[], lsl: number, usl: number) => {
-  const min = Math.min(...measurements);
-  const max = Math.max(...measurements);
-  const binCount = Math.ceil(Math.sqrt(measurements.length));
-  const binWidth = (max - min) / binCount;
-
+  // Step 1 & 2: Process Max & Min
+  const processMax = Math.max(...measurements);
+  const processMin = Math.min(...measurements);
+  
+  // Step 3: Process Width
+  const processWidth = processMax - processMin;
+  
+  // Step 4: Number of Data Points
+  const dataPoints = measurements.length;
+  
+  // Step 5: Number of Classes (Bins)
+  const binCount = Math.ceil(Math.sqrt(dataPoints));
+  
+  // Step 6: Bin Width
+  const binWidth = processWidth / binCount;
+  
+  // Step A: Bin Start (considering LSL)
+  const binStart = Math.min(processMin, lsl);
+  
+  // Create bins array
   const bins = Array(binCount).fill(0);
+  
+  // Populate bins
   measurements.forEach(value => {
-    if (value === max) {
+    // Handle edge case for maximum value
+    if (value === processMax) {
       bins[binCount - 1]++;
       return;
     }
-    const binIndex = Math.floor((value - min) / binWidth);
-    if (binIndex >= 0 && binIndex < binCount) bins[binIndex]++;
+    
+    const binIndex = Math.floor((value - binStart) / binWidth);
+    if (binIndex >= 0 && binIndex < binCount) {
+      bins[binIndex]++;
+    }
   });
 
+  // Generate bin data with proper x-values (bin centers)
+  const data = bins.map((count, i) => ({
+    x: Number((binStart + (i * binWidth) + (binWidth / 2)).toFixed(4)),
+    y: count
+  }));
+
   return {
-    data: bins.map((count, i) => ({
-      x: Number((min + (i * binWidth) + (binWidth / 2)).toFixed(4)),
-      y: count
-    })),
+    data,
+    stats: {
+      mean: measurements.reduce((a, b) => a + b, 0) / measurements.length,
+      stdDev: Math.sqrt(
+        measurements.reduce((a, b) => 
+          a + Math.pow(b - (measurements.reduce((c, d) => c + d, 0) / measurements.length), 2), 0
+        ) / (measurements.length - 1)
+      ),
+      target: (usl + lsl) / 2
+    },
     numberOfBins: binCount
   };
 };
+
 
 export const analyzeData = async (params: {
   startDate: Date;
