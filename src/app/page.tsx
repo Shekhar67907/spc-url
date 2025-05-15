@@ -8,8 +8,8 @@ import AnalysisResults from "./AnalysisResults";
 import { calculateAnalysisData } from "./spcUtils";
 import { FormState, InspectionData, AnalysisData } from "@/types";
 
-// We need BASE_URL here because this component makes its own API call for inspection data
-const BASE_URL = "http://10.10.1.7:8304";
+
+
 
 export default function SPCAnalysisPage() {
   // State management
@@ -37,23 +37,18 @@ export default function SPCAnalysisPage() {
     setAnalysisData(null);
 
     try {
+      // Fetch inspection data from API
       const params = new URLSearchParams({
-        FromDate: format(formData.startDate, "dd/MM/yyyy"),
-        ToDate: format(formData.endDate, "dd/MM/yyyy"),
+        FromDate: format(formData.startDate, "yyyy-MM-dd"),
+        ToDate: format(formData.endDate, "yyyy-MM-dd"),
         MaterialCode: formData.material,
         OperationCode: formData.operation,
         GuageCode: formData.gauge,
-        ShiftId: formData.selectedShifts.join(",")
       });
-
-      const response = await fetch(
-        `${BASE_URL}/api/productionappservices/getspcpirinspectiondatalist?${params}`
-      );
-
+      const response = await fetch(`/api/pirinspectiondata?${params}`);
       if (!response.ok) {
-        throw new Error(`Failed to fetch inspection data: ${response.statusText}`);
+        throw new Error("Failed to fetch inspection data");
       }
-
       const inspectionData: InspectionData[] = await response.json();
 
       // Filter data by selected shifts
@@ -91,6 +86,7 @@ export default function SPCAnalysisPage() {
   const handleDownload = useReactToPrint({
     contentRef: componentRef,
     documentTitle: "SPC_Analysis_Report",
+
     onAfterPrint: () => setDownloading(false),
     onPrintError: async () => {
       setError("Error generating PDF report");
