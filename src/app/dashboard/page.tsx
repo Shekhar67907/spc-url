@@ -8,6 +8,8 @@ import AnalysisResults from "../AnalysisResults";
 import { calculateAnalysisData } from "../spcUtils";
 import { FormState, InspectionData, AnalysisData } from "@/types";
 
+const BASE_URL = "http://10.10.1.7:8304";
+
 export default function SPCAnalysisPage() {
   // State management
   const [loading, setLoading] = useState<boolean>(false);
@@ -36,13 +38,18 @@ export default function SPCAnalysisPage() {
     try {
       // Fetch inspection data from API
       const params = new URLSearchParams({
-        FromDate: format(formData.startDate, "yyyy-MM-dd"),
-        ToDate: format(formData.endDate, "yyyy-MM-dd"),
+        FromDate: format(formData.startDate, "dd/MM/yyyy"),
+        ToDate: format(formData.endDate, "dd/MM/yyyy"),
         MaterialCode: formData.material,
         OperationCode: formData.operation,
         GuageCode: formData.gauge,
+        ShiftId: formData.selectedShifts.join(",")
       });
-      const response = await fetch(`/api/pirinspectiondata?${params}`);
+
+      const response = await fetch(
+        `${BASE_URL}/api/productionappservices/getspcpirinspectiondatalist?${params}`
+      );
+
       if (!response.ok) {
         throw new Error("Failed to fetch inspection data");
       }
@@ -83,7 +90,6 @@ export default function SPCAnalysisPage() {
   const handleDownload = useReactToPrint({
     contentRef: componentRef,
     documentTitle: "SPC_Analysis_Report",
-
     onAfterPrint: () => setDownloading(false),
     onPrintError: async () => {
       setError("Error generating PDF report");
