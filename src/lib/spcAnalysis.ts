@@ -77,7 +77,7 @@ export const analyzeData = async (params: {
       ToDate: format(params.endDate, "dd/MM/yyyy"),
       MaterialCode: params.material,
       OperationCode: params.operation,
-      GaugeCode: params.gauge,
+      GuageCode: params.gauge,
       ShiftId: params.selectedShifts.join(",")
     });
 

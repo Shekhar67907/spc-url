@@ -24,7 +24,7 @@ export default function SPCAnalysisPage() {
     material: "",
     operation: "",
     gauge: "",
-    sampleSize: "5",
+    sampleSize: "1",
     startDate: new Date(),
     endDate: addDays(new Date(), 7),
   });
@@ -42,7 +42,7 @@ export default function SPCAnalysisPage() {
         ToDate: format(formData.endDate, "dd/MM/yyyy"),
         MaterialCode: formData.material,
         OperationCode: formData.operation,
-        GaugeCode: formData.gauge,
+        GuageCode: formData.gauge,
         ShiftId: formData.selectedShifts.join(",")
       });
 

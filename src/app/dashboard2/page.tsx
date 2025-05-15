@@ -24,6 +24,8 @@ import {
 } from "recharts";
 import Link from "next/link";
 
+const BASE_URL = "http://10.10.1.7:8304";
+
 // Data interfaces
 interface ProcessMetrics {
   xBar: number;
@@ -238,7 +240,7 @@ export default function SPCAnalysisPage() {
 
     try {
       const response = await fetch(
-        `/api/pirinspectiondata?FromDate=${format(startDate, "dd/MM/yyyy")}&ToDate=${format(endDate, "dd/MM/yyyy")}&MaterialCode=${material}&OperationCode=${operation}&GaugeCode=${gauge}`
+        `${BASE_URL}/api/productionappservices/getspcpirinspectiondatalist?FromDate=${format(startDate, "dd/MM/yyyy")}&ToDate=${format(endDate, "dd/MM/yyyy")}&MaterialCode=${material}&OperationCode=${operation}&GuageCode=${gauge}`
       );
       const inspectionData = await response.json();
 

@@ -195,7 +195,6 @@ export default function AnalysisForm({
           ToDate: format(formState.endDate, "dd/MM/yyyy"),
           MaterialCode: formState.material,
           OperationCode: formState.operation,
-          ShiftId: formState.selectedShifts.join(","),
         });
         const response = await fetch(
           `${BASE_URL}/api/productionappservices/getspcguagelist?${params}`
@@ -230,7 +229,7 @@ export default function AnalysisForm({
           ToDate: format(formState.endDate, "dd/MM/yyyy"),
           MaterialCode: formState.material,
           OperationCode: formState.operation,
-          GaugeCode: formState.gauge,
+          GuageCode: formState.gauge,
           ShiftId: formState.selectedShifts.join(","),
         });
         const response = await fetch(
@@ -245,7 +244,6 @@ export default function AnalysisForm({
         setIsLoadingInspectionData(false);
       }
     };
-
     fetchShifts();
     fetchMaterials();
     fetchOperations();
@@ -259,7 +257,6 @@ export default function AnalysisForm({
     formState.startDate,
     formState.endDate,
   ]);
-
   const renderDatePicker = (label: string, field: "startDate" | "endDate", selected: Date) => (
     <div className="space-y-1">
       <Label className="text-xs">{label}</Label>
