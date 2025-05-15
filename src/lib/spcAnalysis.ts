@@ -108,8 +108,8 @@ export const analyzeData = async (params: {
     }
 
     const measurements = validData.map(d => parseFloat(d.ActualSpecification));
-    const lsl = parseFloat(validData[0].FromSpecification); // LCL from API
-    const usl = parseFloat(validData[0].ToSpecification); // UCL from API
+    const lsl = parseFloat(validData[0].FromSpecification);
+    const usl = parseFloat(validData[0].ToSpecification);
     const target = (lsl + usl) / 2;
 
     // Validate specification limits
@@ -147,18 +147,34 @@ export const analyzeData = async (params: {
     const cpu = (usl - mean) / (3 * safeStdDev);
     const cpl = (mean - lsl) / (3 * safeStdDev);
     const cpk = Math.min(cpu, cpl);
-    const pp = cp;
-    const ppu = cpu;
-    const ppl = cpl;
-    const ppk = cpk;
+    const pp = (usl - lsl) / (6 * safeStdDev);
+    const ppu = (usl - mean) / (3 * safeStdDev);
+    const ppl = (mean - lsl) / (3 * safeStdDev);
+    const ppk = Math.min(ppu, ppl);
 
     // Calculate distribution data
     const distribution = calculateDistributionData(measurements, lsl, usl);
 
-    // Analyze for special causes
-    const pointsOutsideControl = xBarData.filter(point => 
-      point.y > xBarUcl || point.y < xBarLcl
-    ).length;
+    // Updated 3S Analysis logic according to requirements
+    const processShift = cpk < (0.75 * cp) ? "Yes" : "No";
+    const processSpread = cp < 1 ? "Yes" : "No";
+    const specialCause = pp >= cp ? 
+      "Special Cause Detection impossible" : 
+      pp < (0.75 * cp) ? "Yes" : "No";
+
+    // Updated Decision Remark logic according to requirements
+    let decisionRemark: string;
+    if (cpk >= 1.67) {
+      decisionRemark = "Process Excellent";
+    } else if (cpk >= 1.45) {
+      decisionRemark = "Process is more capable, Scope for Further Improvement";
+    } else if (cpk >= 1.33) {
+      decisionRemark = "Process is capable, Scope for Further Improvement";
+    } else if (cpk >= 1.00) {
+      decisionRemark = "Process is slightly capable, need 100% inspection";
+    } else {
+      decisionRemark = "Stop Process change, process design";
+    }
 
     const analysis: AnalysisData = {
       metrics: {
@@ -199,14 +215,14 @@ export const analyzeData = async (params: {
         numberOfBins: distribution.numberOfBins
       },
       ssAnalysis: {
-        processShift: cpk < 0.75 * cp ? "Yes" : "No",
-        processSpread: cp < 1 ? "Yes" : "No",
-        specialCause: pointsOutsideControl > 0 ? "Variation Detected" : "No Special Cause"
+        processShift,
+        processSpread,
+        specialCause
       } as SSAnalysis,
       processInterpretation: {
         shortTermCapability: cp >= 1.33 ? "Process meets spec" : "Process needs improvement",
         shortTermCentered: Math.abs(cpu - cpl) < 0.2 ? "Centered" : "Not centered",
-        longTermPerformance: cpk >= 1.33 ? "Performance good" : "Performance needs improvement",
+        longTermPerformance: decisionRemark,
         longTermCentered: Math.abs(mean - target) < (0.1 * (usl - lsl)) ? "Centered" : "Not centered"
       } as ProcessInterpretation
     };
