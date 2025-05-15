@@ -230,7 +230,7 @@ export default function AnalysisForm({
           ToDate: format(formState.endDate, "dd/MM/yyyy"),
           MaterialCode: formState.material,
           OperationCode: formState.operation,
-          GuageCode: formState.gauge,
+          GaugeCode: formState.gauge,
           ShiftId: formState.selectedShifts.join(","),
         });
         const response = await fetch(

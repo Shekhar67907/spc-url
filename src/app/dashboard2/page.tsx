@@ -238,7 +238,7 @@ export default function SPCAnalysisPage() {
 
     try {
       const response = await fetch(
-        `/api/pirinspectiondata?FromDate=${format(startDate, "dd/MM/yyyy")}&ToDate=${format(endDate, "dd/MM/yyyy")}&MaterialCode=${material}&OperationCode=${operation}&GuageCode=${gauge}`
+        `/api/pirinspectiondata?FromDate=${format(startDate, "dd/MM/yyyy")}&ToDate=${format(endDate, "dd/MM/yyyy")}&MaterialCode=${material}&OperationCode=${operation}&GaugeCode=${gauge}`
       );
       const inspectionData = await response.json();
 

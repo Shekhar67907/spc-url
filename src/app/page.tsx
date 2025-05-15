@@ -8,8 +8,7 @@ import AnalysisResults from "./AnalysisResults";
 import { calculateAnalysisData } from "./spcUtils";
 import { FormState, InspectionData, AnalysisData } from "@/types";
 
-
-
+const BASE_URL = "http://10.10.1.7:8304";
 
 export default function SPCAnalysisPage() {
   // State management
@@ -39,36 +38,37 @@ export default function SPCAnalysisPage() {
     try {
       // Fetch inspection data from API
       const params = new URLSearchParams({
-        FromDate: format(formData.startDate, "yyyy-MM-dd"),
-        ToDate: format(formData.endDate, "yyyy-MM-dd"),
+        FromDate: format(formData.startDate, "dd/MM/yyyy"),
+        ToDate: format(formData.endDate, "dd/MM/yyyy"),
         MaterialCode: formData.material,
         OperationCode: formData.operation,
-        GuageCode: formData.gauge,
+        GaugeCode: formData.gauge,
+        ShiftId: formData.selectedShifts.join(",")
       });
-      const response = await fetch(`/api/pirinspectiondata?${params}`);
-      if (!response.ok) {
-        throw new Error("Failed to fetch inspection data");
-      }
-      const inspectionData: InspectionData[] = await response.json();
 
-      // Filter data by selected shifts
-      const filteredData = inspectionData.filter((data) =>
-        formData.selectedShifts.includes(data.ShiftCode)
+      const response = await fetch(
+        `${BASE_URL}/api/productionappservices/getspcpirinspectiondatalist?${params}`
       );
 
-      if (filteredData.length === 0) {
+      if (!response.ok) {
+        throw new Error(`Failed to fetch inspection data: ${response.statusText}`);
+      }
+
+      const inspectionData: InspectionData[] = await response.json();
+
+      if (!inspectionData || inspectionData.length === 0) {
         throw new Error("No data found for the selected criteria");
       }
 
-      if (filteredData.length < parseInt(formData.sampleSize)) {
+      if (inspectionData.length < parseInt(formData.sampleSize)) {
         throw new Error(
-          `Insufficient data: ${filteredData.length} measurements found, but ${formData.sampleSize} required`
+          `Insufficient data: ${inspectionData.length} measurements found, but ${formData.sampleSize} required`
         );
       }
 
       // Process the data using our utility function
       const analysisResults = calculateAnalysisData(
-        filteredData,
+        inspectionData,
         parseInt(formData.sampleSize)
       );
       setAnalysisData(analysisResults);
@@ -76,7 +76,7 @@ export default function SPCAnalysisPage() {
       setError(
         err instanceof Error ? `Error analyzing data: ${err.message}` : "Unknown error"
       );
-      console.error(err);
+      console.error("Analysis error:", err);
     } finally {
       setLoading(false);
     }
@@ -86,7 +86,6 @@ export default function SPCAnalysisPage() {
   const handleDownload = useReactToPrint({
     contentRef: componentRef,
     documentTitle: "SPC_Analysis_Report",
-
     onAfterPrint: () => setDownloading(false),
     onPrintError: async () => {
       setError("Error generating PDF report");
